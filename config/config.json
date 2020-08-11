@@ -1,0 +1,24 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "code-json-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/codeJson/CodeJsonWebPart.js",
+          "manifest": "./src/webparts/codeJson/CodeJsonWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {
+    "jquery": {
+      "path": "https://code.jquery.com/jquery-3.5.1.min.js",
+      "globalName": "jQuery"
+    }
+  },
+  "localizedResources": {
+    "CodeJsonWebPartStrings": "lib/webparts/codeJson/loc/{locale}.js",
+    "PropertyControlStrings": "node_modules/@pnp/spfx-property-controls/lib/loc/{locale}.js"
+  }
+}
