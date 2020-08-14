@@ -10,12 +10,11 @@ export class SPA {
 
     private constructor() {}
 
-    public static getInstance(extract: string, append: string, link: string): SPA {
+    public static getInstance(store: Store): SPA {
         let tabStrip: kendo.ui.TabStrip = null;
         let importGrid: kendo.ui.Grid = null;
         let appendGrid: kendo.ui.Grid = null;
         let filter: kendo.ui.Filter = null;
-        let store = new Store();
 
         const cleanseItem = (dataItem: object): object => {
             // remove unwanted properties before saving
@@ -48,7 +47,7 @@ export class SPA {
                     if (e.item.textContent === 'User Guide') {
                         e.preventDefault();
                         tabStrip.select(0);
-                        window.open(link);
+                        window.open(store.value.spLink);
                     }
                 }
             };
@@ -59,7 +58,7 @@ export class SPA {
                 dataSource: new kendo.data.DataSource({
                     transport: {
                         read: async options => {
-                            await sp.web.lists.getById(extract).items.top(1000).getPaged()
+                            await sp.web.lists.getById(store.value.importList).items.top(1000).getPaged()
                             .then(response => {
                                 const recurse = (next: any) => {
                                     next.getNext().then(nestedResponse => {
@@ -144,7 +143,7 @@ export class SPA {
                     });
                 },
                 onLicenseName: (container, options) => {
-                    $('<input required name="' + options.field + '"/>')
+                    $('<input name="' + options.field + '"/>')
                     .appendTo(container)
                     .kendoDropDownList({
                         dataSource: [' ', 'Public Domain, CC0-1.0', 'Permissive', 'LGPL', 'Copyleft', 'Proprietary']
@@ -187,7 +186,7 @@ export class SPA {
                 dataSource: new kendo.data.DataSource({
                     transport: {
                         create: async options => {
-                            await sp.web.lists.getById(append).items.add(cleanseItem(options.data))
+                            await sp.web.lists.getById(store.value.appendList).items.add(cleanseItem(options.data))
                             .then(response => {
                                 options.success(response.data);
                             })
@@ -197,7 +196,7 @@ export class SPA {
                             });
                         },
                         read: async options => {
-                            await sp.web.lists.getById(append).items.select('Id','Title','codeVersion','disclaimerURL','downloadURL','homepageURL','laborHours','licenseName','opRL','repositoryURL','tags','usageType','vcs','Created','Modified').top(2).getPaged()
+                            await sp.web.lists.getById(store.value.appendList).items.select('Id','Title','codeVersion','disclaimerURL','downloadURL','homepageURL','laborHours','licenseName','opRL','repositoryURL','tags','usageType','vcs','Created','Modified').top(1000).getPaged()
                             .then(response => {
                                 const recurse = (next: any) => {
                                     next.getNext().then(nestedResponse => {
@@ -217,7 +216,7 @@ export class SPA {
                             });
                         },
                         update: async options => {
-                            await sp.web.lists.getById(append).items.getById(options.data.Id).update(cleanseItem(options.data))
+                            await sp.web.lists.getById(store.value.appendList).items.getById(options.data.Id).update(cleanseItem(options.data))
                             .then(response => {
                                 options.success();
                             })
@@ -227,7 +226,7 @@ export class SPA {
                             });
                         },
                         destroy: async options => {
-                            await sp.web.lists.getById(append).items.getById(options.data.Id).recycle()
+                            await sp.web.lists.getById(store.value.appendList).items.getById(options.data.Id).recycle()
                             .then(response => {
                                 options.success();
                             })
@@ -264,7 +263,11 @@ export class SPA {
                 columnMenu: true,
                 editable: 'popup',
                 filterable: false,
-                pageable: { pageSizes: true },
+                pageable: { 
+                    pageSize: 5,
+                    pageSizes: true,
+                    buttonCount: 4
+                },
                 scrollable: { virtual: 'columns' },
                 sortable: true,
                 toolbar: [ 'create', { name: 'export', text: 'Download Code.JSON File', iconClass: 'k-icon k-i-download' }, 'search' ],

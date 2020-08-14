@@ -1,10 +1,7 @@
 import { Version } from '@microsoft/sp-core-library';
-import {
-  IPropertyPaneConfiguration,
-  PropertyPaneTextField
-} from '@microsoft/sp-property-pane';
+import { IPropertyPaneConfiguration, PropertyPaneTextField } from '@microsoft/sp-property-pane';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
-import { escape } from '@microsoft/sp-lodash-subset';
+// import { escape } from '@microsoft/sp-lodash-subset';
 
 // not loading local styles
 //import styles from './CodeJsonWebPart.module.scss';
@@ -45,22 +42,16 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
   private store = new Store();
 
   public render(): void {
-    of(this.properties.codeJsonList).pipe(
-      distinctUntilChanged()
-    ).subscribe(_ => {
-      of(this.properties.vasiExtractList).pipe(
-        distinctUntilChanged()
-      ).subscribe(__ => {
-        // set default values
-        if (this.properties.organization != null) this.store.set('organization', this.properties.organization);
-        if (this.properties.contactName != null) this.store.set('contactName', this.properties.contactName);
-        if (this.properties.contactEmail != null) this.store.set('contactEmail', this.properties.contactEmail);
-        console.log(this.store);
-      });
-    });
+    if (this.properties.organization != null) this.store.set('organization', this.properties.organization);
+    if (this.properties.contactName != null) this.store.set('contactName', this.properties.contactName);
+    if (this.properties.contactEmail != null) this.store.set('contactEmail', this.properties.contactEmail);
 
     // only render if SharePoint Lists are set
     if(this.properties.vasiExtractList != null && this.properties.codeJsonList != null && this.properties.instructionsLink != null) {
+      this.store.set('importList', this.properties.vasiExtractList);
+      this.store.set('appendList', this.properties.codeJsonList);
+      this.store.set('spLink', this.properties.instructionsLink);
+
       // load additional kendo dependencies
       SPComponentLoader.loadCss('https://kendo.cdn.telerik.com/2020.2.617/styles/kendo.common-material.min.css');
       SPComponentLoader.loadCss('https://kendo.cdn.telerik.com/2020.2.617/styles/kendo.material.min.css');
@@ -113,7 +104,7 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
         </div>
       `;
 
-      const app = SPA.getInstance(this.properties.vasiExtractList, this.properties.codeJsonList, this.properties.instructionsLink);
+      const app = SPA.getInstance(this.store);
     } else {
       this.domElement.innerHTML = `<div>
       <strong>Select the Property Panel for this web part and provide valid inputs for the following fields:</strong>
@@ -127,6 +118,11 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
       </ul>
       </div>`;
     }
+  }
+
+  // prevent the property pane from rendering on changes (causing data leaks)
+  protected get disableReactivePropertyChanges(): boolean {
+    return true;
   }
 
   protected get dataVersion(): Version {
