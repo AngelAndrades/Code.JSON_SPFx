@@ -12,10 +12,12 @@
   "typescript.tsdk": ".\\node_modules\\typescript\\lib",
   "cSpell.ignoreWords": [
     "combobox",
+    "datasource",
     "epmo",
     "government",
     "government wide resuse",
     "gutil",
+    "importgrid",
     "lgpl",
     "nometadata",
     "numerictextbox",

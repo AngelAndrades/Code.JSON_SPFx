@@ -21,6 +21,7 @@ export interface ICodeJsonWebPartProps {
   organization: string;
   contactName: string;
   contactEmail: string;
+  vcs: string;
   vasiExtractList: string;
   codeJsonList: string;
   instructionsLink: string;
@@ -45,6 +46,7 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
     if (this.properties.organization != null) this.store.set('organization', this.properties.organization);
     if (this.properties.contactName != null) this.store.set('contactName', this.properties.contactName);
     if (this.properties.contactEmail != null) this.store.set('contactEmail', this.properties.contactEmail);
+    if (this.properties.vcs != null) this.store.set('vcs', this.properties.vcs);
 
     // only render if SharePoint Lists are set
     if(this.properties.vasiExtractList != null && this.properties.codeJsonList != null && this.properties.instructionsLink != null) {
@@ -112,6 +114,7 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
       <li>Organization</li>
       <li>Contact Name</li>
       <li>Contact Email</li>
+      <li>Version Control System</li>
       <li>Instruction Link: paste the link to the wiki page containing the instruction guide.</li>
       <li>VASI Extract List: choose the SharePoint custom list containing the imported VASI Data Extract.</li>
       <li>code.JSON List: choose the SharePoint custom list containing the appended information.</li>
@@ -148,6 +151,9 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
                 }),
                 PropertyPaneTextField('contactEmail', {
                   label: 'Contact Email'
+                }),
+                PropertyPaneTextField('vcs', {
+                  label: 'Version Control System'
                 }),
                 PropertyPaneTextField('instructionsLink', {
                   label: 'Instruction Link'

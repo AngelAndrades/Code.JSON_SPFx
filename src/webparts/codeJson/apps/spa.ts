@@ -196,19 +196,31 @@ export class SPA {
                             });
                         },
                         read: async options => {
-                            await sp.web.lists.getById(store.value.appendList).items.select('Id','Title','codeVersion','disclaimerURL','downloadURL','homepageURL','laborHours','licenseName','opRL','repositoryURL','tags','usageType','vcs','Created','Modified').top(1000).getPaged()
+                            await sp.web.lists.getById(store.value.appendList).items.select('Id','Title','codeVersion','laborHours','licenseName','opRL','repositoryURL','tags','usageType','Created','Modified').top(1000).getPaged()
                             .then(response => {
                                 const recurse = (next: any) => {
                                     next.getNext().then(nestedResponse => {
+                                        $.each(nestedResponse.results, (index,value) => {
+                                            let dataItem = importGrid.dataSource.data().find((o:any) => parseInt(o.VASI_x0020_Id) == parseInt(value.Title));
+                                            value.systemName = dataItem.System_x0020_Name;
+                                        });
                                         store.set('dsAppendData', [...store.value.dsAppendData, ...nestedResponse.results]);
                                         if (nestedResponse.hasNext) recurse(nestedResponse);
                                         else options.success(store.value.dsAppendData);
                                     });
                                 };
 
-                                store.set('dsAppendData', response.results);
-                                if (response.hasNext) recurse(response);
-                                else options.success(store.value.dsAppendData);
+                                // delay loading the data, otherwise importgrid datasource will not be ready
+                                setTimeout(() => {
+                                    $.each(response.results, (index,value) => {
+                                        let dataItem = importGrid.dataSource.data().find((o:any) => parseInt(o.VASI_x0020_Id) == parseInt(value.Title));
+                                        value.systemName = dataItem.System_x0020_Name;
+                                    });
+                                    store.set('dsAppendData', response.results);
+
+                                    if (response.hasNext) recurse(response);
+                                    else options.success(store.value.dsAppendData);
+                                }, 2000);
                             })
                             .catch(error => {
                                 console.log(error);
@@ -237,18 +249,17 @@ export class SPA {
                         }
                     },
                     pageSize: store.value.pageSize,
+                    sort: { field: 'systemName', dir: 'asc' },
                     schema: {
                         model: {
                             id: 'Id',
                             fields: {
                                 Title: { type: 'string' },
+                                systemName: { type: 'string' },
                                 codeVersion: { type: 'string' },
                                 usageType: { type: 'string', defaultValue: 'governmentWideResuse' },
                                 licenseName: { type: 'string' },
                                 opRL: { type: 'string' },
-                                homepageURL: { type: 'string' },
-                                downloadURL: { type: 'string' },
-                                disclaimerURL: { type: 'string' },
                                 repositoryURL: { type: 'string' },
                                 vcs: { type: 'string', defaultValue: 'GitHub' },
                                 laborHours: { type: 'number', defaultValue: 0 },
@@ -273,24 +284,17 @@ export class SPA {
                 toolbar: [ 'create', { name: 'export', text: 'Download Code.JSON File', iconClass: 'k-icon k-i-download' }, 'search' ],
                 columns: [
                     { command: ['edit', 'destroy'], width: 225 },
-                    { field: 'Title', title: 'VASI ID', editor: Editors.onVasiId, template: Templates.vasiId, width: 300 },
+                    { field: 'Title', title: 'VASI ID', editor: Editors.onVasiId, width: 100 },
+                    { field: 'systemName', title: 'System Name', width: 300 },
                     { field: 'codeVersion', title: 'Software Version', width: 150 },
                     { field: 'tags', title: 'Tags', width: 150 },
                     { field: 'laborHours', title: 'Labor Hours', width: 150 },
+                    { field: 'repositoryURL', title: 'Repository URL', width: 1000 },
                     { title: 'Permissions',
                         columns: [
                             { field: 'usageType', title: 'Usage Type', editor: Editors.onUsageType, width: 200 },
                             { field: 'licenseName', title: 'License', editor: Editors.onLicenseName, width: 200 },
                             { field: 'opRL', title: 'License URL', width: 300 }
-                        ]
-                    },
-                    { title: 'Repository Information', 
-                        columns: [
-                            { field: 'vcs', title: 'Version Control System', width: 200 },
-                            { field: 'homepageURL', title: 'GitHub Homepage URL', width: 300 },
-                            { field: 'downloadURL', title: 'Download URL', width: 300 },
-                            { field: 'disclaimerURL', title: 'Disclaimer URL', width: 300 },
-                            { field: 'repositoryURL', title: 'Repository URL', width: 300 }
                         ]
                     }
                 ]
@@ -306,52 +310,61 @@ export class SPA {
             });
 
             $('.k-grid-export').click(() => {
+                //const readToken = '1253bd4be30747c1dc7b56c7e40ee9dc856d1d21';   // enterprise github account
+                const readToken = '20cc9245594ebbe184defd41dc74115969b99b8a'; // personal github account
+                const headers = { 
+                    'Authorization' : 'token ' + readToken
+                };
+                let repoDescription = null;
+
                 var jsonResponse = new Object();
                 jsonResponse['agency'] = 'VA';
                 jsonResponse['version'] = '2.0.0';
                 jsonResponse['measurementType'] = { method: 'modules' };
                 jsonResponse['releases'] = [];
+                
+                $.each(importGrid.dataSource.data(), (index,value) => {
+                    let dataItem = appendGrid.dataSource.data().find((o:any) => parseInt(o.Title) == parseInt(value.VASI_x0020_Id));
+                    repoDescription = '';
+                    if(dataItem != undefined) {
+                        if (dataItem.repositoryURL !== null) {
+                            let repo = new URL(dataItem.repositoryURL);
+                            let repoApi = new URL('https://api.github.com/repos' + repo.pathname);
 
-                $.each(importGrid.dataSource.view(), (index,value) => {
-                    let dataItem = appendGrid.dataSource.view().find((o:any) => parseInt(o.Title) === parseInt(value.VASI_x0020_Id));
-                    if (dataItem !== undefined) {
+                            $.ajax({
+                                async: false,
+                                url: repoApi.toString(),
+                                method: 'GET',
+                                headers: headers
+                            })
+                            .done(data => {
+                                repoDescription = data.description;
+                            })
+                            .fail(xhr => {
+                                console.log(xhr);
+                            });
+                        }
+
                         jsonResponse['releases'].push({
+                            id: value.VASI_x0020_Id,
                             name: value.System_x0020_Name,
                             organization: store.value.organization,
                             version: dataItem.codeVersion,
-                            status: value.System_x0020_Status,
+                            status: (value.System_x0020_Status == 'Inactive') ? 'Archival' : value.System_x0020_Status,
                             permissions: { usageType: dataItem.usageType, licenses: [{ name: (dataItem.licenseName !== null) ? dataItem.licenseName : '', opRL: (dataItem.opRL !== null) ? dataItem.opRL : '' }]},
-                            homepageURL: (dataItem.homepageURL !== null) ? dataItem.homepageURL : '',
-                            downloadURL: (dataItem.downloadURL !== null) ? dataItem.downloadURL : '',
-                            disclaimerURL: (dataItem.disclaimerURL !== null) ? dataItem.disclaimerURL : '',
                             repositoryURL: (dataItem.repositoryURL !== null) ? dataItem.repositoryURL : '',
-                            vcs: dataItem.vcs,
+                            vcs: (store.value.vcs).toLowerCase(),
                             laborHours: dataItem.laborHours,
                             tags: [ (dataItem.tags !== null) ? dataItem.tags : '' ],
-                            languages: (value.Technology_x0020_Components !== null) ? value.Technology_x0020_Components : '',
+                            languages: (value.Technology_x0020_Components !== null) ? (value.Technology_x0020_Components).split('<br>') : [],
                             contact: { name: store.value.contactName, email: store.value.contactEmail },
-                            date: { created: dataItem.Created, lastModified: dataItem.Modified, metadataLastUpdated: dataItem.Modified }
-                        });
-                    } else {
-                        jsonResponse['releases'].push({
-                            name: value.System_x0020_Name,
-                            organization: store.value.organization,
-                            version: '',
-                            status: value.System_x0020_Status,
-                            permissions: { usageType: 'governmentWideReuse', licenses: [{ name: '', opRL: '' }]},
-                            homepageURL: '',
-                            downloadURL: '',
-                            disclaimerURL: '',
-                            repositoryURL: '',
-                            vcs: '',
-                            laborHours: 0,
-                            tags: [ '' ],
-                            languages: (value.Technology_x0020_Components !== null) ? value.Technology_x0020_Components : '',
-                            contact: { name: store.value.contactName, email: store.value.contactEmail },
-                            date: { created: value.Created, lastModified: value.Modified, metadataLastUpdated: value.Modified }
+                            date: { created: dataItem.Created, lastModified: dataItem.Modified, metadataLastUpdated: dataItem.Modified },
+                            description: (repoDescription == '') ? 'Repository containing the FOIA Releases for' + value.System_x0020_Name : repoDescription
                         });
                     }
                 });
+                
+                console.log(jsonResponse);
                 
                 var a = document.createElement('a');
                 var file = new Blob([JSON.stringify(jsonResponse)], {type: 'application/json'});
