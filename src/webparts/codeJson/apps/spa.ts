@@ -189,6 +189,7 @@ export class SPA {
                             await sp.web.lists.getById(store.value.appendList).items.add(cleanseItem(options.data))
                             .then(response => {
                                 options.success(response.data);
+                                $('#appendGrid').data('kendoGrid').dataSource.read();  //reload data so system name can be added dynamically
                             })
                             .catch(error => {
                                 console.log(error);
@@ -297,7 +298,11 @@ export class SPA {
                             { field: 'opRL', title: 'License URL', width: 300 }
                         ]
                     }
-                ]
+                ],
+                edit: e => {
+                    $('[for="systemName"]').parent().next().remove();
+                    $('[for="systemName"]').parent().remove();
+                }
             };
 
             appendGrid = $('#appendGrid').kendoGrid(appendGridOptions).data('kendoGrid');
@@ -310,8 +315,8 @@ export class SPA {
             });
 
             $('.k-grid-export').click(() => {
-                //const readToken = '1253bd4be30747c1dc7b56c7e40ee9dc856d1d21';   // enterprise github account
-                const readToken = '20cc9245594ebbe184defd41dc74115969b99b8a'; // personal github account
+                const readToken = '1253bd4be30747c1dc7b56c7e40ee9dc856d1d21';   // enterprise github account
+                //const readToken = '20cc9245594ebbe184defd41dc74115969b99b8a'; // personal github account
                 const headers = { 
                     'Authorization' : 'token ' + readToken
                 };
