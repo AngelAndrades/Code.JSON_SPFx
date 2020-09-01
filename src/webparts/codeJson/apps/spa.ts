@@ -15,6 +15,8 @@ export class SPA {
         let importGrid: kendo.ui.Grid = null;
         let appendGrid: kendo.ui.Grid = null;
         let filter: kendo.ui.Filter = null;
+        let dialog: kendo.ui.Dialog = null;
+        let progressBar: kendo.ui.ProgressBar = null;
 
         const cleanseItem = (dataItem: object): object => {
             // remove unwanted properties before saving
@@ -314,68 +316,101 @@ export class SPA {
                 appendGrid.refresh();
             });
 
+            const dialogOptions: kendo.ui.DialogOptions = {
+                width: '500px',
+                title: 'Generating Code.JSON File',
+                closable: false,
+                modal: false,
+                content: '<p>Please wait while the application processes your request. It is merging your appended information with the VASI Extract and connecting with VA\'s GitHub repository to obtain description information for each entry.</p><h3>Progress Status</h3><div id="progressBar"></div>',
+                actions: [
+                    { text: 'Close when completed' }
+                ]
+            };
+
+            const progressBarOptions: kendo.ui.ProgressBarOptions = {
+                animation: { duration: 100 },
+                min: 0,
+                max: 0,
+                type: 'value',
+                complete: e => {
+                    dialog.close();  // close the dialog box automatically when progress bar reaches max
+                    progressBar = null;
+                }
+            };
+
             $('.k-grid-export').click(() => {
-                const readToken = '1253bd4be30747c1dc7b56c7e40ee9dc856d1d21';   // enterprise github account
-                //const readToken = '20cc9245594ebbe184defd41dc74115969b99b8a'; // personal github account
+                //const readToken = '1253bd4be30747c1dc7b56c7e40ee9dc856d1d21';   // enterprise github account
+                const readToken = '20cc9245594ebbe184defd41dc74115969b99b8a'; // personal github account
                 const headers = { 
                     'Authorization' : 'token ' + readToken
                 };
                 let repoDescription = null;
-
-                var jsonResponse = new Object();
-                jsonResponse['agency'] = 'VA';
-                jsonResponse['version'] = '2.0.0';
-                jsonResponse['measurementType'] = { method: 'modules' };
-                jsonResponse['releases'] = [];
+                let counter = 1;
                 
-                $.each(importGrid.dataSource.data(), (index,value) => {
-                    let dataItem = appendGrid.dataSource.data().find((o:any) => parseInt(o.Title) == parseInt(value.VASI_x0020_Id));
-                    repoDescription = '';
-                    if(dataItem != undefined) {
-                        if (dataItem.repositoryURL !== null) {
-                            let repo = new URL(dataItem.repositoryURL);
-                            let repoApi = new URL('https://api.github.com/repos' + repo.pathname);
+                dialog = $('#dialog').kendoDialog(dialogOptions).data('kendoDialog');
+                progressBar = $('#progressBar').kendoProgressBar(progressBarOptions).data('kendoProgressBar');
+                progressBar.setOptions({ max: appendGrid.dataSource.data().length });
 
-                            $.ajax({
-                                async: false,
-                                url: repoApi.toString(),
-                                method: 'GET',
-                                headers: headers
-                            })
-                            .done(data => {
-                                repoDescription = data.description;
-                            })
-                            .fail(xhr => {
-                                console.log(xhr);
+                $.when( dialog.open() ).then(_ => {
+                    var jsonResponse = new Object();
+                    jsonResponse['agency'] = 'VA';
+                    jsonResponse['version'] = '2.0.0';
+                    jsonResponse['measurementType'] = { method: 'modules' };
+                    jsonResponse['releases'] = [];
+                    
+                    $.each(importGrid.dataSource.data(), (index,value) => {
+                        let dataItem = appendGrid.dataSource.data().find((o:any) => parseInt(o.Title) == parseInt(value.VASI_x0020_Id));
+                        if(dataItem != undefined) {
+                            if (dataItem.repositoryURL !== null) {
+                                progressBar.value(counter++);
+
+                                let repo = new URL(dataItem.repositoryURL);
+                                let repoApi = new URL('https://api.github.com/repos' + repo.pathname);
+                                
+                                $.ajax({
+                                    async: false,
+                                    url: repoApi.toString(),
+                                    method: 'GET',
+                                    headers: headers
+                                })
+                                .done(data => {
+                                    repoDescription = data.description;
+                                })
+                                .fail(xhr => {
+                                    repoDescription = 'Repository containing the FOIA Releases for ' + value.System_x0020_Name;
+                                });
+                            }
+    
+                            jsonResponse['releases'].push({
+                                id: value.VASI_x0020_Id,
+                                name: value.System_x0020_Name,
+                                organization: store.value.organization,
+                                version: dataItem.codeVersion,
+                                status: (value.System_x0020_Status == 'Inactive') ? 'Archival' : value.System_x0020_Status,
+                                permissions: { usageType: dataItem.usageType, licenses: [{ name: (dataItem.licenseName !== null) ? dataItem.licenseName : '', opRL: (dataItem.opRL !== null) ? dataItem.opRL : '' }]},
+                                homepageURL: store.value.homeLink,
+                                repositoryURL: (dataItem.repositoryURL !== null) ? dataItem.repositoryURL : '',
+                                vcs: (store.value.vcs).toLowerCase(),
+                                laborHours: dataItem.laborHours,
+                                tags: [ (dataItem.tags !== null) ? dataItem.tags : '' ],
+                                languages: (value.Technology_x0020_Components !== null) ? (value.Technology_x0020_Components).split('<br>') : [],
+                                contact: { name: store.value.contactName, email: store.value.contactEmail },
+                                date: { created: dataItem.Created, lastModified: dataItem.Modified, metadataLastUpdated: dataItem.Modified },
+                                description: repoDescription
                             });
                         }
-
-                        jsonResponse['releases'].push({
-                            id: value.VASI_x0020_Id,
-                            name: value.System_x0020_Name,
-                            organization: store.value.organization,
-                            version: dataItem.codeVersion,
-                            status: (value.System_x0020_Status == 'Inactive') ? 'Archival' : value.System_x0020_Status,
-                            permissions: { usageType: dataItem.usageType, licenses: [{ name: (dataItem.licenseName !== null) ? dataItem.licenseName : '', opRL: (dataItem.opRL !== null) ? dataItem.opRL : '' }]},
-                            repositoryURL: (dataItem.repositoryURL !== null) ? dataItem.repositoryURL : '',
-                            vcs: (store.value.vcs).toLowerCase(),
-                            laborHours: dataItem.laborHours,
-                            tags: [ (dataItem.tags !== null) ? dataItem.tags : '' ],
-                            languages: (value.Technology_x0020_Components !== null) ? (value.Technology_x0020_Components).split('<br>') : [],
-                            contact: { name: store.value.contactName, email: store.value.contactEmail },
-                            date: { created: dataItem.Created, lastModified: dataItem.Modified, metadataLastUpdated: dataItem.Modified },
-                            description: (repoDescription == '') ? 'Repository containing the FOIA Releases for' + value.System_x0020_Name : repoDescription
-                        });
-                    }
+                    });
+                    
+                    // set delay to allow progress animation to function correctly, 100 milliseconds * number of records
+                    setTimeout(_ => {
+                        var a = document.createElement('a');
+                        var file = new Blob([JSON.stringify(jsonResponse)], {type: 'application/json'});
+                        a.href = URL.createObjectURL(file);
+                        a.download = 'code.JSON';
+                        a.click();
+                    }, 100 * appendGrid.dataSource.data().length);
                 });
-                
-                console.log(jsonResponse);
-                
-                var a = document.createElement('a');
-                var file = new Blob([JSON.stringify(jsonResponse)], {type: 'application/json'});
-                a.href = URL.createObjectURL(file);
-                a.download = 'code.JSON';
-                a.click();
+    
             });
 
         });

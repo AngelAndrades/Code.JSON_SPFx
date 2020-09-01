@@ -22,6 +22,7 @@ export interface ICodeJsonWebPartProps {
   contactName: string;
   contactEmail: string;
   vcs: string;
+  homeLink: string;
   vasiExtractList: string;
   codeJsonList: string;
   instructionsLink: string;
@@ -47,6 +48,7 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
     if (this.properties.contactName != null) this.store.set('contactName', this.properties.contactName);
     if (this.properties.contactEmail != null) this.store.set('contactEmail', this.properties.contactEmail);
     if (this.properties.vcs != null) this.store.set('vcs', this.properties.vcs);
+    if (this.properties.homeLink != null) this.store.set('homeLink', this.properties.homeLink);
 
     // only render if SharePoint Lists are set
     if(this.properties.vasiExtractList != null && this.properties.codeJsonList != null && this.properties.instructionsLink != null) {
@@ -87,6 +89,7 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
               min-width: 10vw;
           }
         </style>
+        <div id="dialog"></div>
         <div id="tabStrip">
           <ul>
             <li class="k-state-active">Appended Data</li>
@@ -115,6 +118,7 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
       <li>Contact Name</li>
       <li>Contact Email</li>
       <li>Version Control System</li>
+      <li>Repo Homepage URL</li>
       <li>Instruction Link: paste the link to the wiki page containing the instruction guide.</li>
       <li>VASI Extract List: choose the SharePoint custom list containing the imported VASI Data Extract.</li>
       <li>code.JSON List: choose the SharePoint custom list containing the appended information.</li>
@@ -154,6 +158,9 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
                 }),
                 PropertyPaneTextField('vcs', {
                   label: 'Version Control System'
+                }),
+                PropertyPaneTextField('homeLink', {
+                  label: 'Repo Homepage URL'
                 }),
                 PropertyPaneTextField('instructionsLink', {
                   label: 'Instruction Link'
