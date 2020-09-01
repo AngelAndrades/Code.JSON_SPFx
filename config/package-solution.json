@@ -3,7 +3,7 @@
   "solution": {
     "name": "code-json-client-side-solution",
     "id": "71862935-3c25-41d1-b42f-ed0a9b3c4c79",
-    "version": "2.1.1.0",
+    "version": "2.2.0.0",
     "includeClientSideAssets": true,
     "isDomainIsolated": false,
     "developer": {
