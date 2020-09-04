@@ -205,7 +205,7 @@ export class SPA {
                                     next.getNext().then(nestedResponse => {
                                         $.each(nestedResponse.results, (index,value) => {
                                             let dataItem = importGrid.dataSource.data().find((o:any) => parseInt(o.VASI_x0020_Id) == parseInt(value.Title));
-                                            value.systemName = dataItem.System_x0020_Name;
+                                            value.systemName = (dataItem != null) ? dataItem.System_x0020_Name : '';
                                         });
                                         store.set('dsAppendData', [...store.value.dsAppendData, ...nestedResponse.results]);
                                         if (nestedResponse.hasNext) recurse(nestedResponse);
@@ -217,13 +217,13 @@ export class SPA {
                                 setTimeout(() => {
                                     $.each(response.results, (index,value) => {
                                         let dataItem = importGrid.dataSource.data().find((o:any) => parseInt(o.VASI_x0020_Id) == parseInt(value.Title));
-                                        value.systemName = dataItem.System_x0020_Name;
+                                        value.systemName = (dataItem != null) ? dataItem.System_x0020_Name : '';
                                     });
                                     store.set('dsAppendData', response.results);
 
                                     if (response.hasNext) recurse(response);
                                     else options.success(store.value.dsAppendData);
-                                }, 2000);
+                                }, 3000);
                             })
                             .catch(error => {
                                 console.log(error);
@@ -304,6 +304,12 @@ export class SPA {
                 edit: e => {
                     $('[for="systemName"]').parent().next().remove();
                     $('[for="systemName"]').parent().remove();
+                },
+                save: e => {
+                    let dataItem = importGrid.dataSource.data().find((o:any) => parseInt(o.VASI_x0020_Id) == parseInt(e.model['Title']));
+                    if (dataItem == null) {
+                        alert('The VASI ID entered could not be validated against the current VASI Extract. Please update the VASI Extract List or use the dropdown to locate the appropriate system record.');
+                    }
                 }
             };
 
@@ -344,73 +350,68 @@ export class SPA {
                 const headers = { 
                     'Authorization' : 'token ' + readToken
                 };
-                let repoDescription = null;
                 let counter = 1;
                 
                 dialog = $('#dialog').kendoDialog(dialogOptions).data('kendoDialog');
                 progressBar = $('#progressBar').kendoProgressBar(progressBarOptions).data('kendoProgressBar');
                 progressBar.setOptions({ max: appendGrid.dataSource.data().length });
 
-                $.when( dialog.open() ).then(_ => {
-                    var jsonResponse = new Object();
-                    jsonResponse['agency'] = 'VA';
-                    jsonResponse['version'] = '2.0.0';
-                    jsonResponse['measurementType'] = { method: 'modules' };
-                    jsonResponse['releases'] = [];
-                    
-                    $.each(importGrid.dataSource.data(), (index,value) => {
-                        let dataItem = appendGrid.dataSource.data().find((o:any) => parseInt(o.Title) == parseInt(value.VASI_x0020_Id));
+                var jsonResponse = new Object();
+                jsonResponse['agency'] = 'VA';
+                jsonResponse['version'] = '2.0.0';
+                jsonResponse['measurementType'] = { method: 'modules' };
+                jsonResponse['releases'] = [];
+                
+                (async () => {
+                    for await (let obj of importGrid.dataSource.data().slice(0)) {
+                        let dataItem = appendGrid.dataSource.data().find((o:any) => parseInt(o.Title) == parseInt(obj.VASI_x0020_Id));
                         if(dataItem != undefined) {
                             if (dataItem.repositoryURL !== null) {
                                 progressBar.value(counter++);
 
+                                let record = {
+                                    id: obj.VASI_x0020_Id,
+                                    name: obj.System_x0020_Name,
+                                    organization: store.value.organization,
+                                    version: dataItem.codeVersion,
+                                    status: (obj.System_x0020_Status == 'Inactive') ? 'Archival' : obj.System_x0020_Status,
+                                    permissions: { usageType: dataItem.usageType, licenses: [{ name: (dataItem.licenseName !== null) ? dataItem.licenseName : '', opRL: (dataItem.opRL !== null) ? dataItem.opRL : '' }]},
+                                    homepageURL: store.value.homeLink,
+                                    repositoryURL: (dataItem.repositoryURL !== null) ? dataItem.repositoryURL : '',
+                                    vcs: (store.value.vcs).toLowerCase(),
+                                    laborHours: dataItem.laborHours,
+                                    tags: [ (dataItem.tags !== null) ? dataItem.tags : '' ],
+                                    languages: (obj.Technology_x0020_Components !== null) ? (obj.Technology_x0020_Components).split('<br>') : [],
+                                    contact: { name: store.value.contactName, email: store.value.contactEmail },
+                                    date: { created: dataItem.Created, lastModified: dataItem.Modified, metadataLastUpdated: dataItem.Modified }
+                                };
+
                                 let repo = new URL(dataItem.repositoryURL);
                                 let repoApi = new URL('https://api.github.com/repos' + repo.pathname);
-                                
-                                $.ajax({
-                                    async: false,
-                                    url: repoApi.toString(),
+
+                                await fetch(repoApi.toString(), {
                                     method: 'GET',
                                     headers: headers
                                 })
-                                .done(data => {
-                                    repoDescription = data.description;
+                                .then(response => response.json())
+                                .then(data => {
+                                    record['description'] = data['description'];
                                 })
-                                .fail(xhr => {
-                                    repoDescription = 'Repository containing the FOIA Releases for ' + value.System_x0020_Name;
+                                .catch(error => console.log('err: ', error))
+                                .then(() => {
+                                    if (record['description'] == undefined) record['description'] = 'Repository containing the FOIA Releases for ' + obj.System_x0020_Name;
+                                    jsonResponse['releases'].push(record);
                                 });
                             }
-    
-                            jsonResponse['releases'].push({
-                                id: value.VASI_x0020_Id,
-                                name: value.System_x0020_Name,
-                                organization: store.value.organization,
-                                version: dataItem.codeVersion,
-                                status: (value.System_x0020_Status == 'Inactive') ? 'Archival' : value.System_x0020_Status,
-                                permissions: { usageType: dataItem.usageType, licenses: [{ name: (dataItem.licenseName !== null) ? dataItem.licenseName : '', opRL: (dataItem.opRL !== null) ? dataItem.opRL : '' }]},
-                                homepageURL: store.value.homeLink,
-                                repositoryURL: (dataItem.repositoryURL !== null) ? dataItem.repositoryURL : '',
-                                vcs: (store.value.vcs).toLowerCase(),
-                                laborHours: dataItem.laborHours,
-                                tags: [ (dataItem.tags !== null) ? dataItem.tags : '' ],
-                                languages: (value.Technology_x0020_Components !== null) ? (value.Technology_x0020_Components).split('<br>') : [],
-                                contact: { name: store.value.contactName, email: store.value.contactEmail },
-                                date: { created: dataItem.Created, lastModified: dataItem.Modified, metadataLastUpdated: dataItem.Modified },
-                                description: repoDescription
-                            });
                         }
-                    });
-                    
-                    // set delay to allow progress animation to function correctly, 100 milliseconds * number of records
-                    setTimeout(_ => {
-                        var a = document.createElement('a');
-                        var file = new Blob([JSON.stringify(jsonResponse)], {type: 'application/json'});
-                        a.href = URL.createObjectURL(file);
-                        a.download = 'code.JSON';
-                        a.click();
-                    }, 100 * appendGrid.dataSource.data().length);
+                    }
+                })().then(() => {
+                    var a = document.createElement('a');
+                    var file = new Blob([JSON.stringify(jsonResponse)], {type: 'application/json'});
+                    a.href = URL.createObjectURL(file);
+                    a.download = 'code.JSON';
+                    a.click();
                 });
-    
             });
 
         });
