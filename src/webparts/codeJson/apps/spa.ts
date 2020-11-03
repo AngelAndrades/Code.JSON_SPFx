@@ -34,6 +34,7 @@ export class SPA {
                     case 'vcs':
                     case 'laborHours':
                     case 'tags':
+                    case 'disclaimer':
                         break;
                     default:
                         delete dataItem[k];
@@ -148,7 +149,7 @@ export class SPA {
                     $('<input name="' + options.field + '"/>')
                     .appendTo(container)
                     .kendoDropDownList({
-                        dataSource: [' ', 'Public Domain, CC0-1.0', 'Permissive', 'LGPL', 'Copyleft', 'Proprietary']
+                        dataSource: [' ', 'Creative Commons Zero v1.0 Universal', 'Permissive', 'LGPL', 'Copyleft', 'Proprietary']
                     });
                 }
             };
@@ -267,6 +268,7 @@ export class SPA {
                                 vcs: { type: 'string', defaultValue: 'GitHub' },
                                 laborHours: { type: 'number', defaultValue: 0 },
                                 tags: { type: 'string' },
+                                disclaimer: { type: 'string' },
                                 Created: { type: 'date' },
                                 Modified: { type: 'date' },
                                 metadataLastUpdated: { type: 'date' }
@@ -296,10 +298,11 @@ export class SPA {
                     { title: 'Permissions',
                         columns: [
                             { field: 'usageType', title: 'Usage Type', editor: Editors.onUsageType, width: 200 },
-                            { field: 'licenseName', title: 'License', editor: Editors.onLicenseName, width: 200 },
+                            { field: 'licenseName', title: 'License', width: 200 },
                             { field: 'opRL', title: 'License URL', width: 300 }
                         ]
-                    }
+                    },
+                    { field: 'disclaimer', title: 'Disclaimer', width: 300 }
                 ],
                 edit: e => {
                     $('[for="systemName"]').parent().next().remove();
@@ -369,39 +372,71 @@ export class SPA {
                             if (dataItem.repositoryURL !== null) {
                                 progressBar.value(counter++);
 
+                                let customTags = [];
+                                if (dataItem.tags !== null) customTags.push(dataItem.tags);
+                                customTags.push((obj.System_x0020_Status == 'Inactive') ? 'Archival' : obj.System_x0020_Status);
+                                customTags.push(dataItem.usageType);
+
+                                let customLanguages = [];
+                                if (obj.Technology_x0020_Components !== null && (obj.Technology_x0020_Components).indexOf(';') > -1) customLanguages = (obj.Technology_x0020_Components).split(';');
+                                if (obj.Technology_x0020_Components !== null && (obj.Technology_x0020_Components).indexOf('<br>') > -1) customLanguages = (obj.Technology_x0020_Components).split('<br>');
+                                if (customLanguages.length == 0) customLanguages.push('Information not available.');
+
                                 let record = {
                                     id: obj.VASI_x0020_Id,
                                     name: obj.System_x0020_Name,
                                     organization: store.value.organization,
                                     version: dataItem.codeVersion,
                                     status: (obj.System_x0020_Status == 'Inactive') ? 'Archival' : obj.System_x0020_Status,
-                                    permissions: { usageType: dataItem.usageType, licenses: [{ name: (dataItem.licenseName !== null) ? dataItem.licenseName : '', opRL: (dataItem.opRL !== null) ? dataItem.opRL : '' }]},
+                                    permissions: { 
+                                        usageType: dataItem.usageType, 
+                                        licenses: [{ 
+                                            name: (dataItem.licenseName !== null) ? dataItem.licenseName : (store.value.licensing) ? store.value.defaultLicense : '', 
+                                            opRL: (dataItem.opRL !== null) ? dataItem.opRL : (store.value.licensing) ? store.value.defaultLicenseUrl : ''
+                                        }]
+                                    },
                                     homepageURL: store.value.homeLink,
+                                    downloadURL: store.value.homeLink,
                                     repositoryURL: (dataItem.repositoryURL !== null) ? dataItem.repositoryURL : '',
+                                    disclaimerText: (dataItem.disclaimer != null) ? dataItem.disclaimer : store.value.disclaimer,
                                     vcs: (store.value.vcs).toLowerCase(),
-                                    laborHours: dataItem.laborHours,
-                                    tags: [ (dataItem.tags !== null) ? dataItem.tags : '' ],
-                                    languages: (obj.Technology_x0020_Components !== null) ? (obj.Technology_x0020_Components).split('<br>') : [],
-                                    contact: { name: store.value.contactName, email: store.value.contactEmail },
-                                    date: { created: dataItem.Created, lastModified: dataItem.Modified, metadataLastUpdated: dataItem.Modified }
+                                    laborHours: parseInt(dataItem.laborHours) + 1,
+                                    tags: customTags,
+                                    languages: customLanguages,
+                                    contact: { 
+                                        name: store.value.contactName, 
+                                        email: store.value.contactEmail,
+                                        URL: 'https://www.va.gov',
+                                        phone: '844-698-2311'
+                                    },
+                                    date: { 
+                                        created: kendo.toString(kendo.parseDate(dataItem.Created),'yyyy-MM-dd'),
+                                        lastModified: kendo.toString(kendo.parseDate(dataItem.Modified),'yyyy-MM-dd'),
+                                        metadataLastUpdated: kendo.toString(kendo.parseDate(dataItem.Modified),'yyyy-MM-dd')
+                                    }
                                 };
 
-                                let repo = new URL(dataItem.repositoryURL);
-                                let repoApi = new URL('https://api.github.com/repos' + repo.pathname);
-
-                                await fetch(repoApi.toString(), {
-                                    method: 'GET',
-                                    headers: headers
-                                })
-                                .then(response => response.json())
-                                .then(data => {
-                                    record['description'] = data['description'];
-                                })
-                                .catch(error => console.log('err: ', error))
-                                .then(() => {
+                                if((dataItem.repositoryURL).indexOf('Patches') == -1) {
+                                    let repo = new URL(dataItem.repositoryURL);
+                                    let repoApi = new URL('https://api.github.com/repos' + repo.pathname);
+    
+                                    await fetch(repoApi.toString(), {
+                                        method: 'GET',
+                                        headers: headers
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        record['description'] = data['description'];
+                                    })
+                                    .catch(error => console.log('err: ', error))
+                                    .then(() => {
+                                        if (record['description'] == undefined) record['description'] = 'Repository containing the FOIA Releases for ' + obj.System_x0020_Name;
+                                        jsonResponse['releases'].push(record);
+                                    });
+                                } else {
                                     if (record['description'] == undefined) record['description'] = 'Repository containing the FOIA Releases for ' + obj.System_x0020_Name;
                                     jsonResponse['releases'].push(record);
-                                });
+                                }
                             }
                         }
                     }
@@ -410,6 +445,7 @@ export class SPA {
                     var file = new Blob([JSON.stringify(jsonResponse)], {type: 'application/json'});
                     a.href = URL.createObjectURL(file);
                     a.download = 'code.JSON';
+                    setTimeout(() => { }, 4000);
                     a.click();
                 });
             });

@@ -1,21 +1,16 @@
 import { Version } from '@microsoft/sp-core-library';
-import { IPropertyPaneConfiguration, PropertyPaneTextField } from '@microsoft/sp-property-pane';
+import { IPropertyPaneConfiguration, PropertyPaneTextField, PropertyPaneCheckbox } from '@microsoft/sp-property-pane';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
-// import { escape } from '@microsoft/sp-lodash-subset';
 
-// not loading local styles
-//import styles from './CodeJsonWebPart.module.scss';
 import * as strings from 'CodeJsonWebPartStrings';
 
-import * as $ from 'jquery';
+//import * as $ from 'jquery';
 import '@progress/kendo-ui';
 import { SPComponentLoader } from '@microsoft/sp-loader';
 import { PropertyFieldListPicker, PropertyFieldListPickerOrderBy } from '@pnp/spfx-property-controls/lib/PropertyFieldListPicker';
 import { sp } from '@pnp/sp/presets/all';
 import { Store } from './state/store';
 import { SPA } from './apps/spa';
-import { of } from 'rxjs';
-import { distinctUntilChanged } from 'rxjs/operators';
 
 export interface ICodeJsonWebPartProps {
   organization: string;
@@ -26,6 +21,8 @@ export interface ICodeJsonWebPartProps {
   vasiExtractList: string;
   codeJsonList: string;
   instructionsLink: string;
+  licensing: string;
+  disclaimer: string;
 }
 
 export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebPartProps> {
@@ -43,12 +40,54 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
 
   private store = new Store();
 
+  private validateDisclaimer(value: string): string {
+    if (value === null || value.trim().length === 0) return 'Disclaimer text is a required field.';
+    else return '';
+  }
+
+  private validateOrganization(value: string): string {
+    if (value === null || value.trim().length === 0) return 'Organization is a required field.';
+    else return '';
+  }
+
+  private validateContactName(value: string): string {
+    if (value === null || value.trim().length === 0) return 'Contact Name is a required field.';
+    else return '';
+  }
+
+  private validateContactEmail(value: string): string {
+    if (value === null || value.trim().length === 0) return 'Contact Email is a required field.';
+    else return '';
+  }
+
+  private validateVersionControl(value: string): string {
+    if (value === null || value.trim().length === 0) return 'Version Control System is a required field.';
+    else return '';
+  }
+
+  private validateRepoUrl(value: string): string {
+    if (value === null || value.trim().length === 0) return 'Repo Homepage URL is a required field.';
+    else return '';
+  }
+
+  private validateVASIExtractList(value: string): string {
+    if (value === 'NO_LIST_SELECTED') return 'VASI Extract List is a required field.';
+    else return '';
+  }
+
+  private validateVASIAppendList(value: string): string {
+    if (value === 'NO_LIST_SELECTED') return 'code.JSON List is a required field.';
+    else return '';
+  }
+
   public render(): void {
     if (this.properties.organization != null) this.store.set('organization', this.properties.organization);
     if (this.properties.contactName != null) this.store.set('contactName', this.properties.contactName);
     if (this.properties.contactEmail != null) this.store.set('contactEmail', this.properties.contactEmail);
     if (this.properties.vcs != null) this.store.set('vcs', this.properties.vcs);
     if (this.properties.homeLink != null) this.store.set('homeLink', this.properties.homeLink);
+    if (this.properties.licensing != null) this.store.set('licensing', true);
+    if (this.properties.disclaimer != null) this.store.set('disclaimer', this.properties.disclaimer);
 
     // only render if SharePoint Lists are set
     if(this.properties.vasiExtractList != null && this.properties.codeJsonList != null && this.properties.instructionsLink != null) {
@@ -122,6 +161,8 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
       <li>Instruction Link: paste the link to the wiki page containing the instruction guide.</li>
       <li>VASI Extract List: choose the SharePoint custom list containing the imported VASI Data Extract.</li>
       <li>code.JSON List: choose the SharePoint custom list containing the appended information.</li>
+      <li>Apply Creative Commons Zero Licensing: sets this license information as the default license, can be overridden at the project entry. If unchecked, there will be no default license information associate with each project record unless specifically entered for each project entry.</li>
+      <li>Disclaimer Text: Sets the default disclaimer text, can be overridden at the project entry</li>
       </ul>
       </div>`;
     }
@@ -140,27 +181,29 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
     return {
       pages: [
         {
-          header: {
-            description: strings.PropertyPaneDescription
-          },
           groups: [
             {
-              groupName: strings.BasicGroupName,
+              groupName: 'Default property values',
               groupFields: [
                 PropertyPaneTextField('organization', {
-                  label: 'Organization'
+                  label: 'Organization',
+                  onGetErrorMessage: this.validateOrganization.bind(this)
                 }),
                 PropertyPaneTextField('contactName', {
-                  label: 'Contact Name'
+                  label: 'Contact Name',
+                  onGetErrorMessage: this.validateContactName.bind(this)
                 }),
                 PropertyPaneTextField('contactEmail', {
-                  label: 'Contact Email'
+                  label: 'Contact Email',
+                  onGetErrorMessage: this.validateContactEmail.bind(this)
                 }),
                 PropertyPaneTextField('vcs', {
-                  label: 'Version Control System'
+                  label: 'Version Control System',
+                  onGetErrorMessage: this.validateVersionControl.bind(this)
                 }),
                 PropertyPaneTextField('homeLink', {
-                  label: 'Repo Homepage URL'
+                  label: 'Repo Homepage URL',
+                  onGetErrorMessage: this.validateRepoUrl.bind(this)
                 }),
                 PropertyPaneTextField('instructionsLink', {
                   label: 'Instruction Link'
@@ -174,7 +217,7 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
                   onPropertyChange: this.onPropertyPaneFieldChanged.bind(this),
                   properties: this.properties,
                   context: this.context,
-                  onGetErrorMessage: null,
+                  onGetErrorMessage: this.validateVASIExtractList.bind(this),
                   deferredValidationTime: 0,
                   key: 'vasiExtractListId'
                 }),
@@ -187,9 +230,17 @@ export default class CodeJsonWebPart extends BaseClientSideWebPart<ICodeJsonWebP
                   onPropertyChange: this.onPropertyPaneFieldChanged.bind(this),
                   properties: this.properties,
                   context: this.context,
-                  onGetErrorMessage: null,
+                  onGetErrorMessage: this.validateVASIAppendList.bind(this),
                   deferredValidationTime: 0,
                   key: 'codeJsonListId'
+                }),
+                PropertyPaneCheckbox('licensing', {
+                  text: 'Apply Creative Commons Zero Licensing'
+                }),
+                PropertyPaneTextField('disclaimer', {
+                  label: 'Disclaimer Text',
+                  multiline: true,
+                  onGetErrorMessage: this.validateDisclaimer.bind(this)
                 })
               ]
             }

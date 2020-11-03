@@ -1,4 +1,4 @@
-export type StateKey = 'pageSize' | 'dsAppendData' | 'dsImportData' | 'organization' | 'contactName' | 'contactEmail' | 'vcs' | 'homeLink' | 'importList' | 'appendList' | 'spLink';
+export type StateKey = 'pageSize' | 'dsAppendData' | 'dsImportData' | 'organization' | 'contactName' | 'contactEmail' | 'vcs' | 'homeLink' | 'importList' | 'appendList' | 'spLink' | 'licensing' | 'disclaimer';
 
 export interface State {
     pageSize: number;
@@ -12,6 +12,10 @@ export interface State {
     importList: string;
     appendList: string;
     spLink: string;
+    licensing: boolean;
+    defaultLicense: string;
+    defaultLicenseUrl: string;
+    disclaimer: string;
 }
 
 export const INITIAL_STATE: State = {
@@ -26,4 +30,8 @@ export const INITIAL_STATE: State = {
     importList: null,
     appendList: null,
     spLink: null,
+    licensing: false,
+    defaultLicense: 'Creative Commons Zero v1.0 Universal',
+    defaultLicenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
+    disclaimer: 'License information not currently available. Information forthcoming.'
 };

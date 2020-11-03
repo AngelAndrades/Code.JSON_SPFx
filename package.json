@@ -19,15 +19,17 @@
     "@microsoft/sp-office-ui-fabric-core": "1.11.0",
     "@microsoft/sp-property-pane": "1.11.0",
     "@microsoft/sp-webpart-base": "1.11.0",
-    "@pnp/graph": "^2.0.8",
-    "@pnp/sp": "^2.0.8",
+    "@pnp/graph": "^2.0.11",
+    "@pnp/sp": "^2.0.11",
     "@pnp/spfx-property-controls": "1.19.0",
-    "@progress/kendo-ui": "^2020.2.617",
-    "@types/jquery": "^3.5.1",
-    "@types/kendo-ui": "^2020.2.0",
+    "@progress/kendo-ui": "^2020.3.1021",
+    "@types/jquery": "^3.5.3",
+    "@types/kendo-ui": "^2020.3.0",
     "ajv-keywords": "^3.5.2",
-    "rxjs": "^6.6.2",
-    "webpack": "^4.44.1"
+    "office-ui-fabric-core": "^11.0.0",
+    "rxjs": "^6.6.3",
+    "typescript": "^4.0.3",
+    "webpack": "^4.44.2"
   },
   "devDependencies": {
     "@microsoft/rush-stack-compiler-3.3": "0.3.5",
@@ -39,7 +41,7 @@
     "@types/es6-promise": "0.0.33",
     "@types/mocha": "2.2.38",
     "@types/webpack-env": "1.13.1",
-    "ajv": "^6.9.1",
+    "ajv": "^6.12.6",
     "gulp": "~3.9.1"
   }
 }
