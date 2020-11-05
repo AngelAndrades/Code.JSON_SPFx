@@ -200,7 +200,7 @@ export class SPA {
                             });
                         },
                         read: async options => {
-                            await sp.web.lists.getById(store.value.appendList).items.select('Id','Title','codeVersion','laborHours','licenseName','opRL','repositoryURL','tags','usageType','Created','Modified').top(1000).getPaged()
+                            await sp.web.lists.getById(store.value.appendList).items.select('Id','Title','codeVersion','laborHours','licenseName','opRL','repositoryURL','tags','usageType','Created','Modified','disclaimer').top(1000).getPaged()
                             .then(response => {
                                 const recurse = (next: any) => {
                                     next.getNext().then(nestedResponse => {
